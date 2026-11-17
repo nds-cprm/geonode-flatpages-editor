@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geonode-flatpages-editor"
+dynamic = ["version"]
+description = "Editor TinyMCE para as flatpages do GeoNode: HTML sanitizado e upload de imagens por página"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "NDS/CPRM" }]
+requires-python = ">=3.10"
+dependencies = [
+    "Django>=4.2",
+    "django-tinymce>=3.6",
+    "bleach>=6.0",
+    "Pillow",
+]
+classifiers = [
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Repository = "https://github.com/nds-cprm/geonode-flatpages-editor"
+
+[tool.setuptools.dynamic]
+version = { attr = "geonode_flatpages_editor.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["geonode_flatpages_editor*"]
+
+[tool.setuptools.package-data]
+geonode_flatpages_editor = ["templates/**/*", "static/**/*", "locale/*/LC_MESSAGES/*"]

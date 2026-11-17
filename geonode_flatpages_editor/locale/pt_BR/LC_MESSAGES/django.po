@@ -1,0 +1,58 @@
+# Tradução pt-BR do geonode-flatpages-editor.
+msgid ""
+msgstr ""
+"Project-Id-Version: geonode-flatpages-editor\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: geonode_flatpages_editor/apps.py
+msgid "Flatpages editor"
+msgstr "Editor de páginas"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Paragraph"
+msgstr "Parágrafo"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Heading 2"
+msgstr "Título 2"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Heading 3"
+msgstr "Título 3"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Heading 4"
+msgstr "Título 4"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Same window"
+msgstr "Mesma janela"
+
+#: geonode_flatpages_editor/editor.py
+msgid "New window"
+msgstr "Nova janela"
+
+#: geonode_flatpages_editor/views.py
+msgid "Page not found."
+msgstr "Página não encontrada."
+
+#: geonode_flatpages_editor/views.py
+msgid "No file was sent."
+msgstr "Nenhum arquivo foi enviado."
+
+#: geonode_flatpages_editor/views.py
+#, python-format
+msgid "The image exceeds the %(size)s MB limit."
+msgstr "A imagem excede o limite de %(size)s MB."
+
+#: geonode_flatpages_editor/views.py
+msgid "The file is not a valid image."
+msgstr "O arquivo não é uma imagem válida."
+
+#: geonode_flatpages_editor/views.py
+msgid "Image format not allowed (use PNG, JPEG, GIF or WebP)."
+msgstr "Formato de imagem não permitido (use PNG, JPEG, GIF ou WebP)."
