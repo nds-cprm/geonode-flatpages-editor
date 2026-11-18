@@ -66,6 +66,24 @@ class SanitizeTests(TestCase):
     def test_none(self):
         self.assertEqual(sanitize_html(None), "")
 
+    def test_tables(self):
+        ok = (
+            "<table><caption>Cookies</caption><thead><tr><th scope=\"col\">Nome</th><th scope=\"col\">Duração</th></tr></thead>"
+            "<tbody><tr><td colspan=\"2\">sessionid</td></tr><tr><th scope=\"row\">a</th><td rowspan=\"3\">b</td></tr></tbody></table>"
+        )
+        self.assertEqual(sanitize_html(ok), ok)
+
+    def test_tables_without_presentation(self):
+        html = (
+            '<table border="1" style="width: 100%" class="x"><colgroup><col></colgroup><tbody>'
+            '<tr style="height: 10px"><td width="50" style="color: red" colspan="0" align="center">a</td>'
+            '<td rowspan="x" scope="col">b</td><th scope="all" colspan="2">c</th></tr></tbody></table>'
+        )
+        self.assertEqual(
+            sanitize_html(html),
+            '<table><tbody><tr><td>a</td><td>b</td><th colspan="2">c</th></tr></tbody></table>',
+        )
+
 
 class ConfigTests(TestCase):
     def test_upload_url(self):
@@ -77,6 +95,16 @@ class ConfigTests(TestCase):
             config = tinymce_config()
         self.assertIn("Parágrafo=p", config["block_formats"])
         self.assertEqual(config["link_target_list"][1]["title"], "Nova janela")
+
+    def test_tables(self):
+        config = tinymce_config()
+        self.assertIn("table", config["plugins"].split())
+        self.assertIn(" table ", config["toolbar"])
+        self.assertIn("th[colspan|rowspan|scope],td[colspan|rowspan]", config["valid_elements"])
+        # tabelas sem border/width/style padrão: o visual fica no CSS do projeto
+        self.assertEqual(config["table_default_attributes"], {})
+        self.assertEqual(config["table_default_styles"], {})
+        self.assertFalse(config["table_resize_bars"])
 
     @override_settings(FLATPAGES_EDITOR={"TINYMCE_CONFIG": {"height": 900}})
     def test_override(self):

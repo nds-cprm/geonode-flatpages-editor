@@ -21,7 +21,12 @@ from . import conf
 ALLOWED_TAGS = {
     "p", "br", "strong", "b", "em", "i", "u", "s", "sub", "sup", "blockquote",
     "h2", "h3", "h4", "ul", "ol", "li", "a", "img",
+    "table", "caption", "thead", "tbody", "tr", "th", "td",
 }
+# tabelas: só a estrutura (mesclagem de células e escopo dos cabeçalhos); bordas, larguras e
+# alinhamento ficam no CSS do projeto
+TABLE_CELL_SPAN = re.compile(r"^[1-9][0-9]?$")
+TABLE_HEADER_SCOPES = {"row", "col", "rowgroup", "colgroup"}
 # vale para href e src: endereços data:, javascript: etc. são removidos
 ALLOWED_PROTOCOLS = {"http", "https", "mailto"}
 
@@ -53,6 +58,10 @@ def _allowed_attribute(tag: str, name: str, value: str) -> bool:
         return name in ("href", "title") or (name == "target" and value == "_blank")
     if tag == "img":
         return name in ("alt", "width", "height") or (name == "src" and _image_src_allowed(value))
+    if tag in ("td", "th") and name in ("colspan", "rowspan"):
+        return bool(TABLE_CELL_SPAN.match(value or ""))
+    if tag == "th" and name == "scope":
+        return value in TABLE_HEADER_SCOPES
     return False
 
 
@@ -82,9 +91,9 @@ def tinymce_config(page_id=None) -> dict:
         "height": 500,
         "menubar": False,
         "branding": False,
-        "plugins": "lists link image paste autolink",
+        "plugins": "lists link image paste autolink table",
         "toolbar": "undo redo | formatselect | bold italic underline strikethrough | subscript superscript | "
-                   "bullist numlist blockquote | link image | removeformat",
+                   "bullist numlist blockquote | link image table | removeformat",
         "block_formats": "; ".join(
             f"{label}={tag}" for label, tag in (
                 (_("Paragraph"), "p"), (_("Heading 2"), "h2"), (_("Heading 3"), "h3"), (_("Heading 4"), "h4"),
@@ -92,7 +101,21 @@ def tinymce_config(page_id=None) -> dict:
         ),
         # o editor descarta, ao digitar e ao colar, o que estiver fora desta lista (ALLOWED_TAGS)
         "valid_elements": "p,br,strong/b,em/i,u,s,sub,sup,blockquote,h2,h3,h4,ul,ol,li,"
-                          "a[href|title|target<_blank],img[src|alt|width|height]",
+                          "a[href|title|target<_blank],img[src|alt|width|height],"
+                          "table,caption,thead,tbody,tr,th[colspan|rowspan|scope],td[colspan|rowspan]",
+        # tabelas só com estrutura: sem border/width/style padrão, sem abas avançadas (cores, bordas,
+        # alinhamento), sem redimensionar com o mouse (gravaria larguras) e sem colgroup; cabeçalho em
+        # <thead>. O visual fica no CSS do projeto
+        "table_default_attributes": {},
+        "table_default_styles": {},
+        "table_appearance_options": False,
+        "table_advtab": False,
+        "table_cell_advtab": False,
+        "table_row_advtab": False,
+        "table_resize_bars": False,
+        "table_use_colgroups": False,
+        "table_header_type": "section",
+        "object_resizing": "img",
         "paste_as_text": True,
         "link_target_list": [{"title": _("Same window"), "value": ""}, {"title": _("New window"), "value": "_blank"}],
         # upload de imagens: a função JS envia o token CSRF do formulário do admin
