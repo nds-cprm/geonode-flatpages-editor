@@ -27,9 +27,11 @@ class FlatpagesEditorConfig(AppConfig):
 
 def check_app_order(app_configs, **kwargs):
     """O admin só é substituído se este app vier depois de django.contrib.flatpages."""
-    from django.conf import settings
+    from django.apps import apps as registry
 
-    apps = [a.split(".apps.")[0] for a in settings.INSTALLED_APPS]
+    # pelo registro de apps, não pelo setting: o GeoNode acrescenta objetos Celery ao INSTALLED_APPS
+    # (geonode/apps.py), e um app pode vir pelo caminho do AppConfig ("pacote.apps.Config")
+    apps = [config.name for config in registry.get_app_configs()]
     if "django.contrib.flatpages" not in apps:
         return [checks.Error("django.contrib.flatpages must be in INSTALLED_APPS.", id="flatpages_editor.E001")]
     if apps.index("geonode_flatpages_editor") < apps.index("django.contrib.flatpages"):

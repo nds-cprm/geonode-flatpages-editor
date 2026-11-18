@@ -2,6 +2,7 @@ import io
 import json
 import os
 import shutil
+from unittest import mock
 
 from PIL import Image
 from django.conf import settings
@@ -16,6 +17,7 @@ from django.urls import reverse
 from django.utils import translation
 
 from geonode_flatpages_editor.admin import TinyMCEFlatpageForm
+from geonode_flatpages_editor.apps import check_app_order
 from geonode_flatpages_editor.editor import move_temp_images, sanitize_html, tinymce_config
 
 UPLOAD_URL = "/admin/flatpages/flatpage/upload-image/"
@@ -200,3 +202,20 @@ class AdminPageTests(TestCase):
         self.assertContains(response, "flatpagesEditorImageUpload")
         # a configuração do widget é serializada em JSON no atributo data-mce-conf
         self.assertIn(json.dumps(UPLOAD_URL)[1:-1], response.content.decode())
+
+
+class AppOrderCheckTests(TestCase):
+    def test_ok(self):
+        self.assertEqual(check_app_order(None), [])
+
+    def test_ignores_non_string_installed_apps(self):
+        # o GeoNode acrescenta objetos Celery ao INSTALLED_APPS (geonode/apps.py) depois de carregar os apps;
+        # mock.patch troca o setting sem repovoar o registro de apps, como acontece no GeoNode
+        with mock.patch.object(settings, "INSTALLED_APPS", tuple(settings.INSTALLED_APPS) + (object(),)):
+            self.assertEqual(check_app_order(None), [])
+
+    def test_wrong_order(self):
+        installed = [a for a in settings.INSTALLED_APPS if a != "geonode_flatpages_editor"]
+        installed.insert(installed.index("django.contrib.flatpages"), "geonode_flatpages_editor")
+        with self.settings(INSTALLED_APPS=installed):
+            self.assertEqual([e.id for e in check_app_order(None)], ["flatpages_editor.E002"])
