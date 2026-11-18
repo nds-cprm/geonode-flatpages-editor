@@ -74,6 +74,12 @@ class SanitizeTests(TestCase):
         ok = '<img src="/uploaded/paginas/1/a.png">'
         self.assertEqual(sanitize_html(ok), ok)
 
+    def test_headings(self):
+        ok = "<h2>a</h2><h3>b</h3><h4>c</h4><h5>d</h5><h6>e</h6>"
+        self.assertEqual(sanitize_html(ok), ok)
+        # h1 é o título da página (template), não entra no conteúdo
+        self.assertEqual(sanitize_html("<h1>x</h1>"), "x")
+
     def test_none(self):
         self.assertEqual(sanitize_html(None), "")
 
@@ -105,6 +111,7 @@ class ConfigTests(TestCase):
         with translation.override("pt-br"):
             config = tinymce_config()
         self.assertIn("Parágrafo=p", config["block_formats"])
+        self.assertIn("Título 6=h6", config["block_formats"])
         self.assertEqual(config["link_target_list"][1]["title"], "Nova janela")
 
     def test_tables(self):
@@ -231,6 +238,13 @@ class RenderTests(MediaTestCase):
         response = self.client.get("/pages/sobre/")
         self.assertContains(response, "<p>oi</p>alert(1)")
         self.assertNotContains(response, "<script>")
+
+    def test_title_is_h1(self):
+        # título da página em h1; o conteúdo começa em h2 (primeiro nível oferecido pelo editor)
+        self.make_page(content="<h2>Seção</h2><p>x</p>")
+        response = self.client.get("/pages/sobre/")
+        self.assertContains(response, "<h1>Sobre</h1>", html=True)
+        self.assertContains(response, "<h2>Seção</h2>", html=True)
 
 
 class AdminPageTests(TestCase):

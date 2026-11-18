@@ -20,7 +20,7 @@ from . import conf
 
 ALLOWED_TAGS = {
     "p", "br", "strong", "b", "em", "i", "u", "s", "sub", "sup", "blockquote",
-    "h2", "h3", "h4", "ul", "ol", "li", "a", "img",
+    "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "a", "img",
     "table", "caption", "thead", "tbody", "tr", "th", "td",
 }
 # tabelas: só a estrutura (mesclagem de células e escopo dos cabeçalhos); bordas, larguras e
@@ -114,10 +114,11 @@ def tinymce_config(page_id=None) -> dict:
         "block_formats": "; ".join(
             f"{label}={tag}" for label, tag in (
                 (_("Paragraph"), "p"), (_("Heading 2"), "h2"), (_("Heading 3"), "h3"), (_("Heading 4"), "h4"),
+                (_("Heading 5"), "h5"), (_("Heading 6"), "h6"),
             )
         ),
         # o editor descarta, ao digitar e ao colar, o que estiver fora desta lista (ALLOWED_TAGS)
-        "valid_elements": "p,br,strong/b,em/i,u,s,sub,sup,blockquote,h2,h3,h4,ul,ol,li,"
+        "valid_elements": "p,br,strong/b,em/i,u,s,sub,sup,blockquote,h2,h3,h4,h5,h6,ul,ol,li,"
                           "a[href|title|target<_blank],img[src|alt|width|height],"
                           "table,caption,thead,tbody,tr,th[colspan|rowspan|scope],td[colspan|rowspan]",
         # tabelas só com estrutura: sem border/width/style padrão, sem abas avançadas (cores, bordas,

@@ -29,6 +29,14 @@ msgid "Heading 4"
 msgstr "Título 4"
 
 #: geonode_flatpages_editor/editor.py
+msgid "Heading 5"
+msgstr "Título 5"
+
+#: geonode_flatpages_editor/editor.py
+msgid "Heading 6"
+msgstr "Título 6"
+
+#: geonode_flatpages_editor/editor.py
 msgid "Same window"
 msgstr "Mesma janela"
 
