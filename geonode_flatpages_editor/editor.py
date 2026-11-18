@@ -27,8 +27,9 @@ ALLOWED_TAGS = {
 # alinhamento ficam no CSS do projeto
 TABLE_CELL_SPAN = re.compile(r"^[1-9][0-9]?$")
 TABLE_HEADER_SCOPES = {"row", "col", "rowgroup", "colgroup"}
-# vale para href e src: endereços data:, javascript: etc. são removidos
-ALLOWED_PROTOCOLS = {"http", "https", "mailto"}
+# vale para href e src: endereços data:, javascript: etc. são removidos; tel: para telefones
+# clicáveis no celular
+ALLOWED_PROTOCOLS = {"http", "https", "mailto", "tel"}
 
 # nome da função JS de upload (static/geonode_flatpages_editor/js/image_upload.js)
 UPLOAD_HANDLER = "flatpagesEditorImageUpload"
@@ -53,9 +54,25 @@ def _image_src_allowed(value: str) -> bool:
     return value.startswith((f"{settings.MEDIA_URL}{upload_dir()}/", "https://", "http://"))
 
 
+# esquema no início de um endereço (ex.: "javascript:", "tel:")
+URL_SCHEME = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.-]*):")
+
+
+def _href_allowed(value: str) -> bool:
+    """
+    Recusa endereços com esquema fora de ALLOWED_PROTOCOLS. O bleach já filtra os protocolos, mas
+    trata "esquema:só-dígitos" (ex.: "javascript:1", "sms:40199") como "host:porta" relativo e os
+    mantém; esta checagem fecha essa brecha. Endereços relativos (/pages/x/, #ancora) passam.
+    """
+    match = URL_SCHEME.match(value or "")
+    return not match or match.group(1).lower() in ALLOWED_PROTOCOLS
+
+
 def _allowed_attribute(tag: str, name: str, value: str) -> bool:
     if tag == "a":
-        return name in ("href", "title") or (name == "target" and value == "_blank")
+        if name == "href":
+            return _href_allowed(value)
+        return name == "title" or (name == "target" and value == "_blank")
     if tag == "img":
         return name in ("alt", "width", "height") or (name == "src" and _image_src_allowed(value))
     if tag in ("td", "th") and name in ("colspan", "rowspan"):

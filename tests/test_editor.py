@@ -51,6 +51,17 @@ class SanitizeTests(TestCase):
             '<a>a</a><a href="https://x" target="_blank">b</a>',
         )
 
+    def test_phone_links(self):
+        ok = '<a href="tel:+554836647000">+55 (48) 3664-7000</a> <a href="mailto:a@b.c">e-mail</a>'
+        self.assertEqual(sanitize_html(ok), ok)
+        self.assertEqual(sanitize_html('<a href="sms:+5548999">SMS</a>'), "<a>SMS</a>")
+        # o bleach mantém "esquema:só-dígitos" (lê como host:porta); a checagem do editor remove
+        for href in ("sms:40199", "javascript:1", "JavaScript:123", "data:1"):
+            self.assertEqual(sanitize_html(f'<a href="{href}">x</a>'), "<a>x</a>", href)
+        # relativos continuam
+        ok = '<a href="/pages/fale-conosco/">a</a><a href="#topo">b</a>'
+        self.assertEqual(sanitize_html(ok), ok)
+
     def test_images(self):
         self.assertEqual(sanitize_html('<img src="data:image/png;base64,AAA">'), "<img>")
         self.assertEqual(sanitize_html('<img src="/outro/a.png">'), "<img>")
