@@ -5,6 +5,7 @@ Configuração do app, lida do setting FLATPAGES_EDITOR (dicionário opcional):
         "UPLOAD_DIR": "flatpages",          # pasta das imagens dentro do MEDIA_ROOT
         "MAX_IMAGE_SIZE": 5 * 1024 * 1024,  # bytes
         "TINYMCE_CONFIG": {"height": 600},  # mesclado sobre a configuração padrão do editor
+        "ORPHAN_MIN_AGE_HOURS": 24,         # idade mínima de uma imagem órfã para a limpeza apagá-la
     }
 
 Os valores são lidos a cada uso, para respeitar override_settings nos testes.
@@ -15,6 +16,7 @@ DEFAULTS = {
     "UPLOAD_DIR": "flatpages",
     "MAX_IMAGE_SIZE": 5 * 1024 * 1024,
     "TINYMCE_CONFIG": {},
+    "ORPHAN_MIN_AGE_HOURS": 24,
 }
 
 # subpasta de UPLOAD_DIR para imagens de páginas ainda não salvas

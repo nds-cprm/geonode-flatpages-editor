@@ -2,7 +2,7 @@
 
 App Django que troca o editor das *flatpages* (`django.contrib.flatpages`) no admin do GeoNode por um TinyMCE com conteúdo restrito e upload de imagens.
 
-- **Conteúdo restrito.** O editor só oferece texto, títulos (h2 a h4), listas, citação, links e imagens. O HTML é sanitizado com `bleach` ao salvar e de novo ao exibir (filtro `sanitize_flatpage`), então o conteúdo carregado por fixture ou direto no banco também é filtrado.
+- **Conteúdo restrito.** O editor só oferece texto, títulos (h2 a h6), listas, citação, links, imagens e tabelas. As tabelas guardam só a estrutura (`caption`, `thead`, `tbody`, `th`, `td`, com `colspan`, `rowspan` e `scope`): bordas, larguras, cores e alinhamento ficam no CSS do projeto, e o editor não grava esses atributos. Os links aceitam `http`, `https`, `mailto` e `tel` (telefones clicáveis no celular); outros protocolos, como `javascript:` e `data:`, são removidos. O HTML é sanitizado com `bleach` ao salvar e de novo ao exibir (filtro `sanitize_flatpage`), então o conteúdo carregado por fixture ou direto no banco também é filtrado.
 - **Upload de imagens.** As imagens são validadas com o Pillow (PNG, JPEG, GIF ou WebP, até 5 MB por padrão) e gravadas por página em `MEDIA_ROOT/flatpages/<id>/`. As imagens de uma página nova ficam em `flatpages/tmp/<uuid>/` e são movidas para a pasta da página quando ela é salva. Quando a página é apagada, a pasta dela é apagada junto.
 - **Template de exibição.** `flatpages/default.html` estende `geonode_base.html`.
 
@@ -52,6 +52,7 @@ FLATPAGES_EDITOR = {
     "UPLOAD_DIR": "flatpages",          # pasta das imagens dentro do MEDIA_ROOT
     "MAX_IMAGE_SIZE": 5 * 1024 * 1024,  # tamanho máximo da imagem, em bytes
     "TINYMCE_CONFIG": {"height": 600},  # mesclado sobre a configuração padrão do editor
+    "ORPHAN_MIN_AGE_HOURS": 24,         # idade mínima de uma imagem órfã para a limpeza apagá-la
 }
 ```
 
@@ -59,7 +60,29 @@ Se você trocar `UPLOAD_DIR` com páginas já publicadas, as imagens antigas sae
 
 O `TINYMCE_CONFIG` pode ampliar o editor, mas as tags fora da lista de `editor.ALLOWED_TAGS` continuam sendo removidas no servidor.
 
-Para mudar a página de exibição, crie `templates/flatpages/default.html` no projeto. Os templates do projeto têm prioridade. Mantenha `{{ flatpage.content|sanitize_flatpage }}` (com `{% load flatpages_editor %}`).
+O template padrão exibe o título da página em `h1`, e o conteúdo usa `h2` a `h6` (os níveis que o editor oferece), numa hierarquia contínua. Para mudar a página de exibição, crie `templates/flatpages/default.html` no projeto. Os templates do projeto têm prioridade. Mantenha `{{ flatpage.content|sanitize_flatpage }}` (com `{% load flatpages_editor %}`).
+
+## Limpeza das imagens órfãs
+
+Ficam órfãs as imagens enviadas numa página nova que não foi salva (`<UPLOAD_DIR>/tmp/`), as que saíram do conteúdo de uma página e as de páginas excluídas fora do admin. O comando apaga as que nenhuma página usa e que têm mais de `ORPHAN_MIN_AGE_HOURS` (padrão: 24 horas):
+
+```bash
+python manage.py flatpages_cleanup_images --dry-run     # só lista
+python manage.py flatpages_cleanup_images --min-age 48  # apaga as com mais de 48 horas
+```
+
+Uma imagem só fica se aparecer no conteúdo de alguma página, não só da dona da pasta: um trecho copiado de uma página para outra leva o endereço junto. A idade mínima protege quem acabou de enviar uma imagem e ainda não salvou a página. Pastas fora do padrão do editor (`tmp/<uuid>/` e `<id>/`) não são tocadas, e cada exclusão vai para o log (`geonode_flatpages_editor.editor`).
+
+Com Celery, a mesma limpeza existe como a tarefa `geonode_flatpages_editor.cleanup_orphan_images`, que o GeoNode descobre sozinho (`autodiscover_tasks`). O pacote não depende do Celery e não agenda nada: o agendamento fica no projeto, no `CELERY_BEAT_SCHEDULE`. Por exemplo, todo dia às 3h:
+
+```python
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE["flatpages-cleanup-images"] = {
+    "task": "geonode_flatpages_editor.cleanup_orphan_images",
+    "schedule": crontab(hour=3, minute=0),
+}
+```
 
 ## Permissões
 
@@ -87,10 +110,6 @@ python scripts/compilemessages.py   # depois de editar locale/*/LC_MESSAGES/djan
 ```
 
 Os testes rodam sem o GeoNode: `tests/templates/geonode_base.html` substitui o template base.
-
-## Pendências
-
-- **Imagens órfãs.** Ficam sem uso as imagens enviadas para uma página nova que acabou não sendo salva (em `flatpages/tmp/`) e as que foram removidas do conteúdo de uma página. Falta um comando de limpeza, que pode ser agendado no Celery beat.
 
 ## Licença
 

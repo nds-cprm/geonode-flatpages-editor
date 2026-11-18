@@ -1,7 +1,10 @@
+import importlib
 import io
 import json
 import os
 import shutil
+import sys
+import time
 from unittest import mock
 
 from PIL import Image
@@ -12,13 +15,14 @@ from django.contrib.sites.models import Site
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import translation
 
 from geonode_flatpages_editor.admin import TinyMCEFlatpageForm
 from geonode_flatpages_editor.apps import check_app_order
-from geonode_flatpages_editor.editor import move_temp_images, sanitize_html, tinymce_config
+from geonode_flatpages_editor.editor import cleanup_orphan_images, move_temp_images, sanitize_html, tinymce_config
 
 UPLOAD_URL = "/admin/flatpages/flatpage/upload-image/"
 
@@ -272,3 +276,103 @@ class AppOrderCheckTests(TestCase):
         installed.insert(installed.index("django.contrib.flatpages"), "geonode_flatpages_editor")
         with self.settings(INSTALLED_APPS=installed):
             self.assertEqual([e.id for e in check_app_order(None)], ["flatpages_editor.E002"])
+
+
+class OrphanCleanupTests(MediaTestCase):
+    """Limpeza das imagens órfãs (editor.cleanup_orphan_images, comando e tarefa do Celery)."""
+
+    def save(self, name, hours_old=48):
+        name = default_storage.save(name, ContentFile(b"img"))
+        when = time.time() - hours_old * 3600
+        os.utime(default_storage.path(name), (when, when))
+        return name
+
+    def url(self, name):
+        return default_storage.url(name)
+
+    def test_temp_images_of_unsaved_pages(self):
+        old = self.save("flatpages/tmp/" + "a" * 32 + "/foto.png")
+        new = self.save("flatpages/tmp/" + "b" * 32 + "/foto.png", hours_old=1)
+        self.assertEqual(cleanup_orphan_images(), [old])
+        self.assertFalse(default_storage.exists(old))
+        self.assertFalse(os.path.exists(default_storage.path(os.path.dirname(old))))
+        self.assertTrue(default_storage.exists(new))
+
+    def test_images_removed_from_content(self):
+        page = self.make_page()
+        used = self.save(f"flatpages/{page.pk}/usada.png")
+        unused = self.save(f"flatpages/{page.pk}/removida.png")
+        page.content = f'<p><img src="{self.url(used)}"></p>'
+        page.save()
+        self.assertEqual(cleanup_orphan_images(), [unused])
+        self.assertTrue(default_storage.exists(used))
+        self.assertFalse(default_storage.exists(unused))
+
+    def test_images_of_deleted_pages(self):
+        name = self.save("flatpages/999/foto.png")
+        self.assertEqual(cleanup_orphan_images(), [name])
+        self.assertFalse(os.path.exists(default_storage.path("flatpages/999")))
+
+    def test_image_used_by_another_page_is_kept(self):
+        page = self.make_page()
+        name = self.save(f"flatpages/{page.pk}/foto.png")
+        other = self.make_page(content=f'<img src="{self.url(name)}">', url="/outra/")
+        self.assertEqual(cleanup_orphan_images(), [])
+        page.delete()  # o sinal apaga a pasta só depois do commit; aqui a pasta continua
+        self.assertEqual(cleanup_orphan_images(), [])
+        self.assertTrue(default_storage.exists(name))
+        other.delete()
+
+    def test_min_age(self):
+        name = self.save("flatpages/999/foto.png", hours_old=10)
+        self.assertEqual(cleanup_orphan_images(), [])
+        self.assertEqual(cleanup_orphan_images(min_age_hours=5), [name])
+        self.assertFalse(default_storage.exists(name))
+
+    @override_settings(FLATPAGES_EDITOR={"ORPHAN_MIN_AGE_HOURS": 72})
+    def test_min_age_setting(self):
+        self.save("flatpages/999/foto.png", hours_old=48)
+        self.assertEqual(cleanup_orphan_images(), [])
+
+    def test_dry_run(self):
+        name = self.save("flatpages/999/foto.png")
+        self.assertEqual(cleanup_orphan_images(dry_run=True), [name])
+        self.assertTrue(default_storage.exists(name))
+
+    def test_unknown_folders_are_ignored(self):
+        name = self.save("flatpages/outra-pasta/foto.png")
+        loose = self.save("flatpages/solta.png")
+        self.assertEqual(cleanup_orphan_images(), [])
+        self.assertTrue(default_storage.exists(name))
+        self.assertTrue(default_storage.exists(loose))
+
+    def test_no_upload_dir(self):
+        self.assertEqual(cleanup_orphan_images(), [])
+
+    def test_command(self):
+        name = self.save("flatpages/999/foto.png", hours_old=10)
+        out = io.StringIO()
+        call_command("flatpages_cleanup_images", "--dry-run", "--min-age", "5", stdout=out)
+        self.assertIn(name, out.getvalue())
+        self.assertIn("1 imagem(ns) órfã(s) seriam apagadas", out.getvalue())
+        self.assertTrue(default_storage.exists(name))
+        out = io.StringIO()
+        call_command("flatpages_cleanup_images", "--min-age", "5", stdout=out)
+        self.assertIn("1 imagem(ns) órfã(s) apagadas", out.getvalue())
+        self.assertFalse(default_storage.exists(name))
+
+    def test_celery_task(self):
+        tasks = importlib.import_module("geonode_flatpages_editor.tasks")
+        if tasks.shared_task is None:
+            self.skipTest("Celery não instalado")
+        self.save("flatpages/999/foto.png")
+        self.assertEqual(tasks.cleanup_orphan_images_task.name, "geonode_flatpages_editor.cleanup_orphan_images")
+        self.assertEqual(tasks.cleanup_orphan_images_task(), 1)
+
+    def test_tasks_module_without_celery(self):
+        with mock.patch.dict(sys.modules, {"celery": None}):
+            sys.modules.pop("geonode_flatpages_editor.tasks", None)
+            tasks = importlib.import_module("geonode_flatpages_editor.tasks")
+            self.assertIsNone(tasks.shared_task)
+            self.assertFalse(hasattr(tasks, "cleanup_orphan_images_task"))
+        sys.modules.pop("geonode_flatpages_editor.tasks", None)
