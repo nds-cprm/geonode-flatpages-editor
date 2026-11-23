@@ -15,7 +15,7 @@ Foi extraído do app `opengeosgb.flatpages_editor` do [OpenGeoSGB](https://githu
 1. No `requirements.txt`:
 
    ```text
-   geonode-flatpages-editor @ git+https://github.com/nds-cprm/geonode-flatpages-editor@v0.1.0
+   geonode-flatpages-editor @ git+https://github.com/nds-cprm/geonode-flatpages-editor@v0.2.0
    ```
 
 2. Nos settings, o app entra **depois** de `django.contrib.flatpages`, porque substitui o admin dele. Um check do Django (`flatpages_editor.E002`) acusa a ordem errada.
